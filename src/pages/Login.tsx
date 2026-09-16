@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { Link, useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { Mail, Lock, Eye, EyeOff, LogIn, Sparkles, UserPlus, AlertTriangle } from 'lucide-react'
+import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
 
 interface LoginProps {
-  onLogin: (userId: string) => void
+  onLogin: (userId: string, authUser?: any) => Promise<void> | void
 }
 
 export default function Login({ onLogin }: LoginProps) {
-  // Email/Password login state (commented out - SSO only)
-  // const [email, setEmail] = useState('')
-  // const [password, setPassword] = useState('')
-  // const [loading, setLoading] = useState(false)
-  const [ssoLoading, setSsoLoading] = useState(false)
-  const { showError } = useToast()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const { showError, showSuccess } = useToast()
+  const navigate = useNavigate()
 
-  // Read callback URL from query params (for Electron app integration)
-  // Read directly from window.location since Login is rendered outside Router
+  // Read callback URL from query params (for desktop app integration if applicable)
   const getCallbackUrl = () => {
     const params = new URLSearchParams(window.location.search)
     return params.get('callback')
@@ -23,198 +25,177 @@ export default function Login({ onLogin }: LoginProps) {
 
   const callbackUrl = getCallbackUrl()
 
-  // Store callback URL in sessionStorage so it persists through OAuth redirect
   useEffect(() => {
     if (callbackUrl) {
-      console.log('Storing callback URL in sessionStorage:', callbackUrl)
       sessionStorage.setItem('oauth_callback_url', callbackUrl)
-    } else {
-      // Also check if it's already in sessionStorage (in case page was refreshed)
-      const storedCallback = sessionStorage.getItem('oauth_callback_url')
-      if (storedCallback) {
-        console.log('Found existing callback URL in sessionStorage:', storedCallback)
-      }
     }
   }, [callbackUrl])
 
-  // Email/Password login handler (commented out - SSO only)
-  // const handleLogin = async (e: React.FormEvent) => {
-  //   e.preventDefault()
-  //   setLoading(true)
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email || !password) {
+      showError('Please enter both email and password.')
+      return
+    }
 
-  //   try {
-  //     const { data, error } = await supabase.auth.signInWithPassword({
-  //       email,
-  //       password,
-  //     })
+    if (!isSupabaseConfigured) {
+      showError('Please set your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env file.')
+      return
+    }
 
-  //     if (error) throw error
-
-  //     if (data.user) {
-  //       onLogin(data.user.id)
-  //     }
-  //   } catch (err: any) {
-  //     showError(err.message || 'Failed to login')
-  //   } finally {
-  //     setLoading(false)
-  //   }
-  // }
-
-  const handleMicrosoftLogin = async () => {
     try {
-      setSsoLoading(true)
-      
-      // Get callback URL from current URL or sessionStorage
-      const currentCallbackUrl = callbackUrl || sessionStorage.getItem('oauth_callback_url')
-      
-      // Ensure callback URL is stored in sessionStorage
-      if (currentCallbackUrl) {
-        sessionStorage.setItem('oauth_callback_url', currentCallbackUrl)
-        console.log('Initiating OAuth with callback URL:', currentCallbackUrl)
-      }
-      
-      // Get the current origin for redirect URL
-      // Include callback parameter if present (for Electron app)
-      // This ensures the callback URL is preserved even if sessionStorage fails
-      const callbackParam = currentCallbackUrl ? `?callback=${encodeURIComponent(currentCallbackUrl)}` : ''
-      const redirectUrl = `${window.location.origin}/auth/callback${callbackParam}`
-      
-      console.log('OAuth redirect URL:', redirectUrl)
-      
-      // Check if tenant URL is configured in environment variables
-      const azureTenantUrl = import.meta.env.VITE_AZURE_TENANT_URL || import.meta.env.NEXT_PUBLIC_AZURE_TENANT_URL
-      
-      const oauthOptions: any = {
-        scopes: 'email',
-        redirectTo: redirectUrl,
-      }
-
-      // If tenant URL is provided via env var, add it to query params
-      // Note: The tenant URL should primarily be configured in Supabase Dashboard
-      // This is just a fallback if needed
-      if (azureTenantUrl) {
-        oauthOptions.queryParams = {
-          domain_hint: azureTenantUrl.includes('tenant') ? azureTenantUrl.split('/').pop() : undefined
-        }
-      }
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: oauthOptions,
+      setLoading(true)
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
       })
 
       if (error) throw error
 
-      // The redirect will happen automatically, so we don't need to do anything else here
-    } catch (err: any) {
-      setSsoLoading(false)
-      // Provide more helpful error messages for common Azure issues
-      if (err.message?.includes('AADSTS50194') || err.message?.includes('multi-tenant')) {
-        showError('Azure authentication is not properly configured. Please configure the Azure Tenant URL in Supabase Dashboard under Authentication > Providers > Azure.')
-      } else if (err.message?.includes('AADSTS9002325') || err.message?.includes('PKCE')) {
-        showError('PKCE is required for Azure authentication. This should be handled automatically. Please check your Supabase configuration.')
-      } else {
-        showError(err.message || 'Failed to initiate Microsoft login')
+      if (data?.user) {
+        showSuccess('Welcome back!')
+        await onLogin(data.user.id, data.user)
+
+        // If desktop callback was requested, redirect back with tokens
+        const storedCallback = callbackUrl || sessionStorage.getItem('oauth_callback_url')
+        if (storedCallback && data.session) {
+          sessionStorage.removeItem('oauth_callback_url')
+          const delimiter = storedCallback.includes('?') ? '&' : '?'
+          window.location.href = `${storedCallback}${delimiter}access_token=${data.session.access_token}&refresh_token=${data.session.refresh_token || ''}`
+          return
+        }
+
+        navigate('/')
       }
+    } catch (err: any) {
+      showError(err.message || 'Invalid email or password.')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-950 text-slate-100">
+      {/* Dynamic Ambient Background Aura */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-gradient-to-tr from-cyan-600/20 via-indigo-600/20 to-purple-600/20 blur-[130px] rounded-full pointer-events-none" />
+      <div className="absolute -bottom-20 -left-20 w-96 h-96 bg-cyan-600/10 blur-[100px] rounded-full pointer-events-none" />
+      <div className="absolute -top-20 -right-20 w-96 h-96 bg-purple-600/10 blur-[100px] rounded-full pointer-events-none" />
+
+      {/* Main Glass Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="max-w-md w-full relative z-10 backdrop-blur-2xl bg-slate-900/80 border border-slate-800/90 rounded-3xl p-8 sm:p-10 shadow-2xl shadow-indigo-950/50"
+      >
+        {/* Brand Header */}
+        <div className="text-center mb-6">
+          <div className="inline-flex p-3 rounded-2xl bg-slate-800/80 border border-slate-700/60 shadow-glow-aura mb-4">
             <img 
-              src="/mechlin-logo.svg" 
-              alt="Mechlin Logo" 
-              className="h-16 w-auto"
+              src="/auratrack-icon.svg" 
+              alt="AuraTrack" 
+              className="h-11 w-11"
             />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">TimeFlow</h1>
-          <p className="text-gray-600 dark:text-gray-300">Sign in to your account</p>
+          <div className="flex items-center justify-center space-x-2 mb-1.5">
+            <h1 className="text-3xl font-extrabold tracking-tight text-white">
+              Aura<span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">Track</span>
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-400 font-medium">
+            Sign in to your productivity dashboard
+          </p>
         </div>
 
-        {/* Email/Password login form (commented out - SSO only) */}
-        {/* <form onSubmit={handleLogin} className="space-y-6">
+        {/* Missing Config Notification */}
+        {!isSupabaseConfigured && (
+          <div className="mb-6 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start space-x-2.5">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400 mt-0.5" />
+            <div className="leading-relaxed">
+              <strong className="font-semibold block text-amber-200">Database Setup Required</strong>
+              Configure <code className="text-amber-300 bg-amber-950/60 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> in your <code className="text-amber-300 bg-amber-950/60 px-1 py-0.5 rounded">.env</code> file.
+            </div>
+          </div>
+        )}
+
+        {/* Login Form */}
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Email
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              Email Address
             </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
-              placeholder="you@example.com"
-            />
+            <div className="relative">
+              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-slate-700/80 bg-slate-800/60 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+                placeholder="you@company.com"
+              />
+            </div>
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
               Password
             </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full pl-10 pr-11 py-3 text-sm rounded-xl border border-slate-700/80 bg-slate-800/60 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit"
-            disabled={loading || ssoLoading}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            disabled={loading}
+            className="w-full mt-2 flex items-center justify-center space-x-2 py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 text-white text-sm font-semibold hover:opacity-95 transition-all shadow-glow-aura disabled:opacity-50 active:scale-[0.99]"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                Or continue with
-              </span>
-            </div>
-          </div> */}
-
-          <button
-            onClick={handleMicrosoftLogin}
-            disabled={ssoLoading}
-            className="w-full flex items-center justify-center space-x-3 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {ssoLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin"></div>
-                <span>Connecting to Microsoft...</span>
-              </>
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <>
-                <svg className="w-5 h-5" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="0" y="0" width="10" height="10" fill="#F25022"/>
-                  <rect x="12" y="0" width="10" height="10" fill="#7FBA00"/>
-                  <rect x="0" y="12" width="10" height="10" fill="#00A4EF"/>
-                  <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
-                </svg>
-                <span>Sign in with Microsoft</span>
+                <LogIn className="w-4 h-4" />
+                <span>Sign In</span>
               </>
             )}
           </button>
+        </form>
 
-        <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-          Sign in with your Microsoft account
-        </p>
-      </div>
+        {/* Footer: Register link */}
+        <div className="mt-8 pt-6 border-t border-slate-800/80 flex flex-col items-center space-y-3 text-xs text-slate-400">
+          <div className="flex items-center space-x-1">
+            <span>Don't have an account?</span>
+            <Link
+              to="/register"
+              className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors flex items-center space-x-1"
+            >
+              <span>Create Account</span>
+              <UserPlus className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          <div className="flex items-center space-x-1 text-slate-500 text-[11px]">
+            <Sparkles className="w-3 h-3 text-cyan-400" />
+            <span>AuraTrack Secure Identity Provider</span>
+          </div>
+        </div>
+      </motion.div>
     </div>
   )
 }
-

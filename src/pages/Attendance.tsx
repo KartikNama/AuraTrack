@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, type ChangeEvent } from 'react'
-import { createPortal } from 'react-dom'
-import { supabase, hrmsSupabase } from '../lib/supabase'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '../lib/supabase'
 import { Search, Download, Calendar, Clock, CheckCircle, XCircle, User, X, RefreshCw, Plus, Edit2, Info, FileText, Eye } from 'lucide-react'
 import { format, parseISO, subDays } from 'date-fns'
 import { toZonedTime, fromZonedTime } from 'date-fns-tz'
@@ -13,7 +13,7 @@ import {
   openStorageFileInNewTab,
   uploadManualEntryAttachment,
   validateManualEntryFile,
-} from '../lib/timeflowStorage'
+} from '../lib/storage'
 
 type Profile = Tables<'profiles'>
 type TimeEntry = Tables<'time_entries'> & { profile?: Profile }
@@ -95,28 +95,6 @@ function leaveDatesInRange(leaveStart: string, leaveEnd: string, rangeStart: str
     current.setDate(current.getDate() + 1)
   }
   return dates
-}
-
-type HrmsLeaveApplication = {
-  user_id: string
-  start_date: string
-  end_date: string
-  leave_type_id?: string | null
-  type_id?: string | null
-  leave_types?: { name: string } | { name: string }[] | null
-}
-
-function resolveLeaveTypeName(
-  leave: HrmsLeaveApplication,
-  leaveTypeById: Map<string, string>,
-): string | null {
-  const nested = leave.leave_types
-  if (nested) {
-    const name = Array.isArray(nested) ? nested[0]?.name : nested.name
-    if (name) return name
-  }
-  const typeId = leave.leave_type_id || leave.type_id
-  return typeId ? leaveTypeById.get(typeId) ?? null : null
 }
 
 function formatAttendanceStatus(record: AttendanceRecord | undefined, date: string): string {
@@ -510,113 +488,6 @@ export default function Attendance({ user }: AttendanceProps) {
       let attendanceRecords = Array.from(attendanceMap.values()).sort((a, b) => {
         return new Date(b.date).getTime() - new Date(a.date).getTime()
       })
-
-      try {
-        const userEmails = new Set<string>()
-        for (const record of attendanceRecords) {
-          if (record.profile?.email) userEmails.add(record.profile.email.toLowerCase())
-        }
-        for (const member of teamMembers) {
-          if (member.email) userEmails.add(member.email.toLowerCase())
-        }
-
-        if (userEmails.size > 0) {
-          const { data: allHrmsUsers } = await hrmsSupabase.from('users').select('id, email')
-
-          const hrmsUsersById = new Map<string, { id: string; email: string }>()
-          for (const hrmsUser of allHrmsUsers || []) {
-            if (!hrmsUser.email) continue
-            const emailLower = hrmsUser.email.toLowerCase()
-            if (userEmails.has(emailLower)) hrmsUsersById.set(hrmsUser.id, hrmsUser)
-          }
-
-          if (hrmsUsersById.size > 0) {
-            const [{ data: leaveTypes }, leaveApplicationsResult] = await Promise.all([
-              hrmsSupabase.from('leave_types').select('id, name'),
-              hrmsSupabase
-                .from('leave_applications')
-                .select('user_id, start_date, end_date, leave_type_id, leave_types(name)')
-                .eq('status', 'approved')
-                .in('user_id', [...hrmsUsersById.keys()])
-                .lte('start_date', endDate)
-                .gte('end_date', startDate),
-            ])
-
-            let leaveApplications = leaveApplicationsResult.data as HrmsLeaveApplication[] | null
-            if (leaveApplicationsResult.error) {
-              const fallbackResult = await hrmsSupabase
-                .from('leave_applications')
-                .select('user_id, start_date, end_date, type_id, leave_types(name)')
-                .eq('status', 'approved')
-                .in('user_id', [...hrmsUsersById.keys()])
-                .lte('start_date', endDate)
-                .gte('end_date', startDate)
-              leaveApplications = fallbackResult.data as HrmsLeaveApplication[] | null
-            }
-
-            const leaveTypeById = new Map((leaveTypes || []).map((type) => [type.id, type.name]))
-
-            if (leaveApplications?.length) {
-              const emailToTrackerUserId = new Map<string, string>()
-              for (const member of teamMembers) {
-                if (member.email && member.id) emailToTrackerUserId.set(member.email.toLowerCase(), member.id)
-              }
-              for (const record of attendanceRecords) {
-                if (record.profile?.email && record.user_id) {
-                  emailToTrackerUserId.set(record.profile.email.toLowerCase(), record.user_id)
-                }
-              }
-
-              const userLeaveByDate = new Map<string, Map<string, string>>()
-              for (const leave of leaveApplications) {
-                const hrmsUser = hrmsUsersById.get(leave.user_id)
-                if (!hrmsUser?.email) continue
-                const trackerUserId = emailToTrackerUserId.get(hrmsUser.email.toLowerCase())
-                if (!trackerUserId) continue
-
-                const leaveTypeName = resolveLeaveTypeName(leave, leaveTypeById)
-                const dates = leaveDatesInRange(leave.start_date, leave.end_date, startDate, endDate)
-                if (!userLeaveByDate.has(trackerUserId)) userLeaveByDate.set(trackerUserId, new Map())
-                const leaveByDate = userLeaveByDate.get(trackerUserId)!
-                for (const dateStr of dates) {
-                  leaveByDate.set(dateStr, leaveTypeName || 'Leave')
-                }
-              }
-
-              const recordKey = (userId: string, date: string) => `${userId}-${date}`
-              const existingKeys = new Set(attendanceRecords.map((r) => recordKey(r.user_id, r.date)))
-
-              attendanceRecords = [
-                ...attendanceRecords.map((record) => {
-                  const leaveType = userLeaveByDate.get(record.user_id)?.get(record.date)
-                  return leaveType !== undefined
-                    ? { ...record, status: 'on_leave' as const, leave_type: leaveType }
-                    : record
-                }),
-                ...[...userLeaveByDate.entries()].flatMap(([trackerUserId, leaveDateMap]) => {
-                  const userProfile = teamMembers.find((m) => m.id === trackerUserId)
-                  if (!userProfile) return []
-                  return [...leaveDateMap.entries()]
-                    .filter(([dateStr]) => !existingKeys.has(recordKey(trackerUserId, dateStr)))
-                    .map(([dateStr, leaveType]) => ({
-                      id: recordKey(trackerUserId, dateStr),
-                      user_id: trackerUserId,
-                      date: dateStr,
-                      clock_in_time: null,
-                      clock_out_time: null,
-                      status: 'on_leave' as const,
-                      leave_type: leaveType,
-                      duration: 0,
-                      profile: userProfile,
-                    }))
-                }),
-              ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching leave applications from HRMS:', error)
-      }
 
       if (requestId !== fetchRequestIdRef.current) return
 
@@ -1134,7 +1005,7 @@ export default function Attendance({ user }: AttendanceProps) {
         doc.setFontSize(8)
         doc.setTextColor(128, 128, 128)
         doc.text(
-          `Page ${i} of ${pageCount} | TimeFlow Attendance Report`,
+          `Page ${i} of ${pageCount} | AuraTrack Attendance Intelligence Report`,
           pageWidth / 2,
           pageHeight - 10,
           { align: 'center' },

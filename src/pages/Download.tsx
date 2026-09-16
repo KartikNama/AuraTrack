@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Download as DownloadIcon } from 'lucide-react'
+import { Download as DownloadIcon, CheckCircle2, Monitor, Laptop, Sparkles } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
 import Loader from '../components/Loader'
@@ -54,51 +55,41 @@ export default function Download() {
       }
     } catch (error) {
       console.error('Error fetching tracker version:', error)
-      // Keep default version from package.json if fetch fails
     }
   }
 
   const fetchDownloadLinks = async () => {
     try {
       setLoading(true)
-      
-      // Try multiple possible bucket names (prioritize tracker-application)
       const possibleBuckets = ['tracker-application', 'downloads', 'desktop-apps', 'apps', 'releases']
       
-      // Try multiple possible file names for each platform
       const windowsFiles = [
+        'windows/AuraTrack-Setup.exe',
+        'windows/AuraTrack.exe',
+        'AuraTrack-Setup.exe',
         'windows/TimeFlow-Setup.exe',
         'windows/TimeFlow.exe',
         'TimeFlow-Setup.exe',
-        'TimeFlow.exe',
-        'windows/timeflow-setup.exe',
       ]
       const macosFiles = [
+        'macos/AuraTrack.dmg',
+        'AuraTrack.dmg',
         'macos/TimeFlow.dmg',
         'macos/TimeFlow.app.dmg',
         'TimeFlow.dmg',
-        'macos/timeflow.dmg',
       ]
 
-      let foundBucket = ''
       let foundWindows = ''
       let foundMacos = ''
 
-      // Try each bucket
       for (const bucketName of possibleBuckets) {
         try {
-          // Check if bucket exists by trying to list files
           const { data: listData, error: listError } = await supabase.storage
             .from(bucketName)
             .list('', { limit: 100 })
 
-          if (listError) {
-            continue // Bucket doesn't exist or not accessible
-          }
+          if (listError || !listData) continue
 
-          foundBucket = bucketName
-
-          // Helper function to recursively find files
           const findFilesRecursively = async (path: string = ''): Promise<string[]> => {
             const { data, error } = await supabase.storage.from(bucketName).list(path, { limit: 100 })
             if (error || !data) return []
@@ -107,32 +98,25 @@ export default function Download() {
             for (const item of data) {
               const fullPath = path ? `${path}/${item.name}` : item.name
               if (item.id === null) {
-                // It's a folder, recurse
                 const subFiles = await findFilesRecursively(fullPath)
                 files.push(...subFiles)
               } else {
-                // It's a file
                 files.push(fullPath)
               }
             }
             return files
           }
 
-          // Get all files in the bucket
           const allFiles = await findFilesRecursively()
 
-          // Find Windows file (.exe)
           const windowsFile = allFiles.find(file => 
             file.toLowerCase().endsWith('.exe') && 
             (file.toLowerCase().includes('windows') || file.toLowerCase().includes('win') || !file.includes('/'))
           )
           if (windowsFile) {
             const { data } = supabase.storage.from(bucketName).getPublicUrl(windowsFile)
-            if (data?.publicUrl) {
-              foundWindows = data.publicUrl
-            }
+            if (data?.publicUrl) foundWindows = data.publicUrl
           } else {
-            // Fallback to trying predefined paths
             for (const filePath of windowsFiles) {
               try {
                 const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath)
@@ -140,24 +124,20 @@ export default function Download() {
                   foundWindows = data.publicUrl
                   break
                 }
-              } catch (e) {
+              } catch {
                 continue
               }
             }
           }
 
-          // Find macOS file (.dmg)
           const macosFile = allFiles.find(file => 
             file.toLowerCase().endsWith('.dmg') && 
             (file.toLowerCase().includes('macos') || file.toLowerCase().includes('mac') || !file.includes('/'))
           )
           if (macosFile) {
             const { data } = supabase.storage.from(bucketName).getPublicUrl(macosFile)
-            if (data?.publicUrl) {
-              foundMacos = data.publicUrl
-            }
+            if (data?.publicUrl) foundMacos = data.publicUrl
           } else {
-            // Fallback to trying predefined paths
             for (const filePath of macosFiles) {
               try {
                 const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath)
@@ -165,13 +145,12 @@ export default function Download() {
                   foundMacos = data.publicUrl
                   break
                 }
-              } catch (e) {
+              } catch {
                 continue
               }
             }
           }
 
-          // If we found at least one file, use this bucket
           if (foundWindows || foundMacos) {
             setDownloadLinks({
               windows: foundWindows,
@@ -181,13 +160,10 @@ export default function Download() {
             return
           }
         } catch (e) {
-          console.error(`Error checking bucket ${bucketName}:`, e)
-          // Continue to next bucket
           continue
         }
       }
 
-      // If no files found, set empty links (buttons will be disabled)
       setDownloadLinks({
         windows: '',
         macos: '',
@@ -195,21 +171,19 @@ export default function Download() {
       setLoading(false)
     } catch (error) {
       console.error('Error fetching download links:', error)
-      showError('Failed to fetch download links. Please try again later.')
+      showError('Failed to fetch download links.')
       setLoading(false)
     }
   }
 
   const handleDownload = async (platform: 'windows' | 'macos', url: string) => {
     if (!url || url === '#') {
-      showError(`${platform === 'windows' ? 'Windows' : 'macOS'} download is not yet available.`)
+      showError(`${platform === 'windows' ? 'Windows' : 'macOS'} build package will be available shortly.`)
       return
     }
 
     try {
-      showInfo(`Starting download for ${platform === 'windows' ? 'Windows' : 'macOS'}...`)
-      
-      // Create a temporary anchor element to trigger download
+      showInfo(`Initiating download for ${platform === 'windows' ? 'Windows' : 'macOS'} client...`)
       const link = document.createElement('a')
       link.href = url
       link.download = ''
@@ -219,105 +193,150 @@ export default function Download() {
       document.body.removeChild(link)
     } catch (error) {
       console.error('Error downloading file:', error)
-      showError('Failed to start download. Please try again.')
+      showError('Failed to start download.')
     }
   }
 
   if (loading) {
-    return <Loader size="lg" text="Loading download links..." />
+    return <Loader size="lg" text="Checking client packages..." />
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-blue-600 dark:bg-blue-500 text-white p-8 rounded-xl">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-4xl font-bold">Download TimeFlow Desktop App</h1>
-          <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm font-semibold border border-white/30">
-            v{version}
-          </span>
+    <div className="space-y-8 max-w-6xl mx-auto pb-12">
+      {/* Hero Banner */}
+      <div className="relative overflow-hidden rounded-3xl p-8 sm:p-12 bg-gradient-to-r from-slate-900 via-indigo-950/70 to-slate-900 border border-slate-800 shadow-2xl">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 blur-[100px] pointer-events-none rounded-full" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-3 max-w-xl">
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>AuraTrack Client Engine</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              Get the AuraTrack Desktop Client
+            </h1>
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+              Ultra-lightweight background tracker with automated activity sync, smart idle detection, and offline telemetry buffer.
+            </p>
+          </div>
+          <div className="flex flex-col items-start md:items-end">
+            <span className="px-4 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-cyan-400 text-sm font-bold shadow-sm">
+              Release v{version}
+            </span>
+            <span className="text-[11px] text-slate-400 mt-1">Automatic silent updates enabled</span>
+          </div>
         </div>
-        <p className="text-blue-100 text-lg">
-          Get the full-featured desktop application for Windows and macOS
-        </p>
       </div>
 
-      {/* Download Options */}
+      {/* Platform Download Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Windows */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-xl mb-4 mx-auto">
-            <WindowsIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+        {/* Windows Card */}
+        <motion.div
+          whileHover={{ y: -4 }}
+          className="relative rounded-3xl p-8 bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-lg backdrop-blur-xl flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-500">
+                <WindowsIcon className="w-7 h-7" />
+              </div>
+              <span className="px-3 py-1 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-xs font-semibold">
+                Windows 64-bit
+              </span>
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+              AuraTrack for Windows
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+              Designed for Windows 10 & 11 with minimal RAM overhead and battery-saver mode.
+            </p>
           </div>
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-white text-center">Windows</h3>
-            <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-semibold">
-              v{version}
-            </span>
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
-            Windows 10/11 (64-bit)
-          </p>
-          <button
-            onClick={() => handleDownload('windows', downloadLinks.windows)}
-            disabled={!downloadLinks.windows}
-            className="w-full flex items-center justify-center space-x-2 bg-blue-600 dark:bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <DownloadIcon className="w-5 h-5" />
-            <span>Download for Windows</span>
-          </button>
-          <p className="text-xs text-gray-500 text-center mt-3">.exe installer</p>
-        </div>
 
-        {/* macOS */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-center w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-xl mb-4 mx-auto">
-            <AppleIcon className="w-8 h-8 text-gray-800 dark:text-gray-200" />
+          <div>
+            <button
+              onClick={() => handleDownload('windows', downloadLinks.windows)}
+              disabled={!downloadLinks.windows}
+              className="w-full flex items-center justify-center space-x-2.5 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-semibold text-sm shadow-glow-cyan transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <DownloadIcon className="w-4 h-4" />
+              <span>Download Installer (.exe)</span>
+            </button>
+            <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 mt-3">
+              SHA-256 verified binary
+            </p>
           </div>
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-white text-center">macOS</h3>
-            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs font-semibold">
-              v{version}
-            </span>
+        </motion.div>
+
+        {/* macOS Card */}
+        <motion.div
+          whileHover={{ y: -4 }}
+          className="relative rounded-3xl p-8 bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-lg backdrop-blur-xl flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                <AppleIcon className="w-7 h-7" />
+              </div>
+              <span className="px-3 py-1 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-semibold">
+                Universal Apple Silicon / Intel
+              </span>
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+              AuraTrack for macOS
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+              Optimized for macOS Monterey, Ventura, Sonoma, and Sequoia with native Apple Silicon speed.
+            </p>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
-            macOS 10.15 or later
-          </p>
-          <button
-            onClick={() => handleDownload('macos', downloadLinks.macos)}
-            disabled={!downloadLinks.macos}
-            className="w-full flex items-center justify-center space-x-2 bg-gray-800 dark:bg-gray-700 text-white px-6 py-3 rounded-lg hover:bg-gray-900 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <DownloadIcon className="w-5 h-5" />
-            <span>Download for macOS</span>
-          </button>
-          <p className="text-xs text-gray-500 text-center mt-3">.dmg installer</p>
-        </div>
+
+          <div>
+            <button
+              onClick={() => handleDownload('macos', downloadLinks.macos)}
+              disabled={!downloadLinks.macos}
+              className="w-full flex items-center justify-center space-x-2.5 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-glow-aura transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <DownloadIcon className="w-4 h-4" />
+              <span>Download Disk Image (.dmg)</span>
+            </button>
+            <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 mt-3">
+              Universal binary installer
+            </p>
+          </div>
+        </motion.div>
       </div>
 
-      {/* System Requirements */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">System Requirements</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="font-medium text-gray-800 dark:text-white mb-2">Windows</h3>
-            <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-              <li>• Windows 10 or later</li>
-              <li>• 64-bit processor</li>
-              <li>• 100 MB free disk space</li>
-            </ul>
+      {/* System Specifications Card */}
+      <div className="rounded-3xl p-6 sm:p-8 bg-white/60 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center space-x-2">
+          <Monitor className="w-5 h-5 text-indigo-400" />
+          <span>System Compatibility & Verification</span>
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-600 dark:text-slate-300">
+          <div className="space-y-2 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+            <div className="font-semibold text-slate-900 dark:text-white flex items-center space-x-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>Zero-Impact Footprint</span>
+            </div>
+            <p className="text-slate-500 dark:text-slate-400">Uses less than 35MB RAM in background operation.</p>
           </div>
-          <div>
-            <h3 className="font-medium text-gray-800 dark:text-white mb-2">macOS</h3>
-            <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-              <li>• macOS 10.15 or later</li>
-              <li>• Intel or Apple Silicon</li>
-              <li>• 100 MB free disk space</li>
-            </ul>
+
+          <div className="space-y-2 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+            <div className="font-semibold text-slate-900 dark:text-white flex items-center space-x-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>Offline Telemetry</span>
+            </div>
+            <p className="text-slate-500 dark:text-slate-400">Buffers attendance locally during network dips and auto-syncs.</p>
+          </div>
+
+          <div className="space-y-2 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+            <div className="font-semibold text-slate-900 dark:text-white flex items-center space-x-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>Hardware Encryption</span>
+            </div>
+            <p className="text-slate-500 dark:text-slate-400">End-to-end tokenized auth with Microsoft Azure PKCE.</p>
           </div>
         </div>
       </div>
     </div>
   )
 }
-

@@ -9,7 +9,7 @@ import type { Tables } from '../types/database'
 type Notification = Tables<'notifications'>
 
 interface NotificationBellProps {
-  userId: string
+  userId?: string
 }
 
 export default function NotificationBell({ userId }: NotificationBellProps) {
@@ -24,6 +24,10 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
 
   // Fetch notifications
   const fetchNotifications = async () => {
+    if (!userId) {
+      setLoading(false)
+      return
+    }
     try {
       const { data, error } = await supabase
         .from('notifications')

@@ -12,13 +12,14 @@ import {
   Search,
   LogOut,
   Menu,
-  Clock,
   Download,
   Image,
   Sun,
   Moon,
+  Zap,
 } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
+import NotificationBell from './NotificationBell'
 import type { Tables } from '../types/database'
 
 type Profile = Tables<'profiles'>
@@ -55,168 +56,181 @@ export default function Layout({ children, user }: LayoutProps) {
   ]
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
       {/* Sidebar */}
       <aside
         className={`${
-          sidebarOpen ? 'w-72' : 'w-20'
-        } bg-gradient-to-b from-white via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col backdrop-blur-lg`}
+          sidebarOpen ? 'w-64' : 'w-20'
+        } bg-white/95 dark:bg-slate-900/90 border-r border-slate-200 dark:border-slate-800/80 transition-all duration-300 flex flex-col backdrop-blur-xl z-20`}
       >
-        {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className={`relative h-16 flex items-center border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 ${
-            sidebarOpen ? 'justify-between px-4' : 'justify-center px-2'
+        {/* Logo / Header */}
+        <div
+          className={`h-16 flex items-center border-b border-slate-200 dark:border-slate-800/80 ${
+            sidebarOpen ? 'justify-between px-5' : 'justify-center px-2'
           }`}
         >
           {sidebarOpen ? (
             <>
-              <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 rounded-lg flex items-center justify-center shadow-lg flex-shrink-0">
-                  <Clock className="w-6 h-6 text-white" />
+              <Link to="/" className="flex items-center space-x-3 group">
+                <div className="relative">
+                  <img
+                    src="/auratrack-icon.svg"
+                    alt="AuraTrack Logo"
+                    className="w-8 h-8 rounded-lg shadow-glow-aura transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
+                  </span>
                 </div>
-                <motion.span
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="text-xl font-bold text-gray-800 dark:text-white truncate"
-                >
-                  TimeFlow
-                </motion.span>
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                <div className="flex flex-col">
+                  <span className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                    AuraTrack
+                  </span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                    Enterprise
+                  </span>
+                </div>
+              </Link>
+              <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200 flex items-center justify-center group flex-shrink-0 ml-2"
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                 aria-label="Collapse sidebar"
               >
-                <Menu className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors" />
-              </motion.button>
+                <Menu className="w-5 h-5" />
+              </button>
             </>
           ) : (
-            <div className="flex items-center justify-center w-full">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200 flex items-center justify-center group"
-                aria-label="Expand sidebar"
-              >
-                <Menu className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors" />
-              </motion.button>
-            </div>
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              aria-label="Expand sidebar"
+            >
+              <img
+                src="/auratrack-icon.svg"
+                alt="AuraTrack"
+                className="w-7 h-7"
+              />
+            </button>
           )}
-        </motion.div>
+        </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-          {menuItems.map((item, index) => {
-      const Icon = item.icon
-        const isActive = location.pathname === item.path
-        return (
-          <motion.div
-            key={item.path}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.05 }}
-          >
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1.5">
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            const isActive = location.pathname === item.path
+            return (
               <Link
+                key={item.path}
                 to={item.path}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 relative overflow-hidden group ${
-                isActive
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 text-white shadow-md'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-100 hover:to-gray-50 dark:hover:from-gray-700 dark:hover:to-gray-800'
-              }`}
+                title={!sidebarOpen ? item.label : undefined}
+                className={`flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative ${
+                  isActive
+                    ? 'bg-gradient-to-r from-cyan-500/15 via-indigo-500/15 to-purple-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
               >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-600 dark:text-gray-300'}`} />
-                {sidebarOpen && <span className={`font-medium ${isActive ? 'text-white' : 'text-gray-700 dark:text-gray-300'}`}>{item.label}</span>}
+                {isActive && (
+                  <motion.div
+                    layoutId="activeIndicator"
+                    className="absolute left-0 top-2 bottom-2 w-1 bg-gradient-to-b from-cyan-400 to-indigo-500 rounded-r-full"
+                  />
+                )}
+                <Icon
+                  className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                    isActive
+                      ? 'text-cyan-500 dark:text-cyan-400'
+                      : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
+                  }`}
+                />
+                {sidebarOpen && <span className="truncate">{item.label}</span>}
               </Link>
-          </motion.div>
-        )
+            )
           })}
         </nav>
+
+        {/* Sidebar Footer Info */}
+        {sidebarOpen && (
+          <div className="p-3 m-3 rounded-xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-cyan-500/10 border border-indigo-500/20 text-xs">
+            <div className="flex items-center space-x-2 text-indigo-400 font-semibold mb-1">
+              <Zap className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Aura Intelligence</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+              Real-time sync active with encrypted telemetry.
+            </p>
+          </div>
+        )}
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-16 bg-gradient-to-r from-white via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shadow-sm backdrop-blur-lg">
+        <header className="h-16 bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between px-6 backdrop-blur-xl z-10">
           <div className="flex items-center flex-1 max-w-md">
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+              <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+                placeholder="Quick search metrics, team, projects..."
+                className="w-full pl-10 pr-4 py-2 text-xs md:text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
               />
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
-                {/* Theme Toggle */}
-                <motion.button
-                  onClick={toggleTheme}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
+          <div className="flex items-center space-x-3">
+            {/* Notification Bell */}
+            <NotificationBell userId={user.id} />
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all"
+              title="Toggle Theme"
+              aria-label="Toggle Theme"
+            >
               <AnimatePresence mode="wait">
                 {theme === 'light' ? (
-                  <motion.div
-                    key="moon"
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 90, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Moon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                  </motion.div>
+                  <Moon className="w-4.5 h-4.5 text-indigo-600" />
                 ) : (
-                  <motion.div
-                    key="sun"
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 90, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Sun className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  </motion.button>
+                  <Sun className="w-4.5 h-4.5 text-amber-400" />
+                )}
+              </AnimatePresence>
+            </button>
 
             {/* User Profile */}
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 rounded-full flex items-center justify-center text-white font-semibold shadow-lg">
+            <div className="flex items-center space-x-3 pl-2 border-l border-slate-200 dark:border-slate-800">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-md ring-2 ring-slate-800">
                 {user.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
               </div>
-              {sidebarOpen && (
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                    {user.full_name}
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                    {user.role}
-                  </span>
-                </div>
-              )}
+              <div className="hidden sm:flex flex-col">
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[120px] truncate">
+                  {user.full_name || 'User'}
+                </span>
+                <span className="text-[10px] font-medium text-cyan-500 dark:text-cyan-400 capitalize">
+                  {user.role}
+                </span>
+              </div>
             </div>
 
-                {/* Logout */}
-                <button
-                  onClick={handleLogout}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <LogOut className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                </button>
+            {/* Logout */}
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-xl text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+              title="Log out"
+              aria-label="Log out"
+            >
+              <LogOut className="w-4.5 h-4.5" />
+            </button>
           </div>
         </header>
 
-            {/* Page Content */}
-            <main className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">{children}</main>
+        {/* Main Body View */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50 dark:bg-transparent">
+          {children}
+        </main>
       </div>
     </div>
   )
 }
-

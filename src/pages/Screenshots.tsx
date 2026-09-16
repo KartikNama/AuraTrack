@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { Search, Filter, Calendar, Image, Video, Download, Eye, User, ZoomIn, ZoomOut, MousePointer, Keyboard, TrendingUp, FolderKanban, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { format, startOfDay, endOfDay, parseISO, getHours } from 'date-fns'
 import Loader from '../components/Loader'
+import { getStorageBaseUrl } from '../lib/storage'
 import type { Tables } from '../types/database'
 
 type Profile = Tables<'profiles'>
@@ -43,7 +44,7 @@ interface HourlyGroup {
 }
 
 /** Screenshot-storage-server origin; loads images via GET /file?... */
-const SCREENSHOT_STORAGE_BASE_URL = 'https://timeflowstorage.mechlintech.com'.replace(/\/$/, '')
+const SCREENSHOT_STORAGE_BASE_URL = getStorageBaseUrl()
 
 const QUERY_RETRY_ATTEMPTS = 3
 const QUERY_RETRY_DELAY_MS = 400
@@ -156,7 +157,7 @@ function normalizeScreenshotStoragePath(storagePath: string, screenshotType?: st
   return finalPath
 }
 
-/** storage_path shape: screenshots/{uuid}/file.png or camera/{uuid}/file.png → matches on-disk layout under timeflow-screenshots */
+/** storage_path shape: screenshots/{uuid}/file.png or camera/{uuid}/file.png → matches on-disk layout under aura-screenshots */
 function buildScreenshotStorageServerUrl(normalizedPath: string): string | null {
   if (!SCREENSHOT_STORAGE_BASE_URL) return null
   const segments = normalizedPath.split('/').filter(Boolean)

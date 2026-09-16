@@ -9,24 +9,22 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* Light theme background - gradient */
-body {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background-color: #f8fafc;
+  color: #0f172a;
   min-height: 100vh;
 }
 
-/* Dark theme background - gradient */
 body.dark {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-  color: #e2e8f0;
+  background-color: #080c14;
+  color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.06) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.05) 0px, transparent 50%);
+  background-attachment: fixed;
 }
 
 #root {
@@ -35,168 +33,94 @@ body.dark {
   overflow: hidden;
 }
 
-/* Custom scrollbar - Light theme */
+/* Glassmorphic UI utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-card-hover {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -10px rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.dark .glass-card-hover:hover {
+  box-shadow: 0 12px 30px -10px rgba(6, 182, 212, 0.12);
+  border-color: rgba(6, 182, 212, 0.25);
+}
+
+/* Scrollbars */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 5px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 5px;
-  border: 2px solid #f1f1f1;
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-}
-
-/* Custom scrollbar - Dark theme */
-.dark ::-webkit-scrollbar-track {
-  background: #1e293b;
-  border-radius: 5px;
+  background: rgba(99, 102, 241, 0.6);
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  border-radius: 5px;
-  border: 2px solid #1e293b;
+  background: rgba(51, 65, 85, 0.6);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+  background: rgba(6, 182, 212, 0.5);
 }
 
-/* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #667eea #f1f1f1;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
 }
 
 .dark * {
-  scrollbar-color: #4facfe #1e293b;
+  scrollbar-color: rgba(51, 65, 85, 0.6) transparent;
 }
 
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Transitions */
+.theme-transition {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-.fade-in {
-  animation: fadeIn 0.3s ease-out;
-}
-
-/* Smooth transitions for theme changes */
-* {
-  transition-property: background-color, border-color, color, fill, stroke;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 200ms;
-}
-
-/* Tooltip arrows */
-.tooltip-arrow-top::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 6px;
-  border-style: solid;
-  border-color: #111827 transparent transparent transparent;
-}
-
-.dark .tooltip-arrow-top::after {
-  border-color: #374151 transparent transparent transparent;
-}
-
-.tooltip-arrow-bottom::after {
-  content: '';
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 6px;
-  border-style: solid;
-  border-color: transparent transparent #111827 transparent;
-}
-
-.dark .tooltip-arrow-bottom::after {
-  border-color: transparent transparent #374151 transparent;
-}
-
-.tooltip-arrow-left::after {
-  content: '';
-  position: absolute;
-  right: -6px;
-  top: 50%;
-  transform: translateY(-50%);
-  border-width: 6px;
-  border-style: solid;
-  border-color: transparent transparent transparent #111827;
-}
-
-.dark .tooltip-arrow-left::after {
-  border-color: transparent transparent transparent #374151;
-}
-
-.tooltip-arrow-right::after {
-  content: '';
-  position: absolute;
-  left: -6px;
-  top: 50%;
-  transform: translateY(-50%);
-  border-width: 6px;
-  border-style: solid;
-  border-color: transparent #111827 transparent transparent;
-}
-
-.dark .tooltip-arrow-right::after {
-  border-color: transparent #374151 transparent transparent;
-}
-
-/* Performance optimizations */
-* {
-  will-change: auto;
-}
-
-img, video {
-  content-visibility: auto;
-}
-
-/* Date picker calendar icon styling */
+/* Date picker indicator */
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1);
+  filter: invert(0.5);
   cursor: pointer;
   opacity: 0.8;
+  transition: opacity 0.2s;
 }
 
 .dark input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
-  opacity: 1;
+  opacity: 0.85;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
-/* Firefox date picker */
-input[type="date"] {
-  color-scheme: dark;
-}
-
-/* Reduce motion for users who prefer it */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -206,4 +130,3 @@ input[type="date"] {
     transition-duration: 0.01ms !important;
   }
 }
-

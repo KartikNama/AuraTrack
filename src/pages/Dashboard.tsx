@@ -42,7 +42,6 @@ export default function Dashboard({ user }: DashboardProps) {
           profile:profiles!time_entries_user_id_fkey(*),
           project_time_entries(
             project_id,
-            billable,
             projects(name)
           )
         `)
@@ -86,7 +85,6 @@ export default function Dashboard({ user }: DashboardProps) {
           profile:profiles!time_entries_user_id_fkey(*),
           project_time_entries(
             project_id,
-            billable,
             projects(name)
           )
         `)

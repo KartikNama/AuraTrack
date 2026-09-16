@@ -1,20 +1,21 @@
 {
-  "name": "time-tracker-web",
-  "version": "1.6.0",
-  "description": "Professional Time Tracker Web Application",
+  "name": "auratrack-web",
+  "version": "2.0.0",
+  "description": "AuraTrack - Enterprise Time Intelligence & Productivity Platform",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "build:gh-pages": "VITE_BASE_PATH=/$npm_package_name/ vite build"
+    "preview": "vite preview"
   },
   "keywords": [
-    "time-tracker",
-    "web",
+    "auratrack",
+    "time-intelligence",
+    "attendance",
+    "productivity",
     "dashboard"
   ],
-  "author": "Mechlin Technology",
+  "author": "AuraTrack",
   "license": "MIT",
   "devDependencies": {
     "@types/react": "^18.2.43",
