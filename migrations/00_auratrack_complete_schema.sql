@@ -275,6 +275,9 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     key TEXT UNIQUE NOT NULL,
     value JSONB NOT NULL,
+    setting_key TEXT,
+    setting_value JSONB,
+    category TEXT DEFAULT 'tracker',
     description TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -396,6 +399,24 @@ AS $$
     WHERE id = employee_id AND manager_id = manages_employee.manager_id
   );
 $$;
+
+-- Security helper to get required tracker version (callable by anon and authenticated)
+CREATE OR REPLACE FUNCTION public.get_tracker_required_version()
+RETURNS text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(value #>> '{}', value::text)
+  FROM public.system_settings
+  WHERE key = 'tracker_required_version'
+     OR key = 'required_tracker_version'
+  LIMIT 1;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_tracker_required_version() TO anon;
+GRANT EXECUTE ON FUNCTION public.get_tracker_required_version() TO authenticated;
 
 -- Auto create profile on auth.users sign up trigger
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -617,7 +638,7 @@ CREATE POLICY "User logs policy" ON public.user_logs FOR ALL TO authenticated US
 INSERT INTO public.system_settings (key, value, description)
 VALUES 
     ('tracker_required_version', '"2.0.0"'::jsonb, 'AuraTrack desktop client required versions (comma-separated or single version)'),
-    ('tracker_update_url', '"https://timeflow.mechlintech.com/download"'::jsonb, 'AuraTrack desktop client download URL'),
+    ('tracker_update_url', '"https://auratrack.io/download"'::jsonb, 'AuraTrack desktop client download URL'),
     ('tracker_force_update', 'false'::jsonb, 'Block outdated versions immediately when true'),
     ('default_screenshot_interval', '{"interval": 10}'::jsonb, 'Default screenshot interval in minutes')
 ON CONFLICT (key) DO NOTHING;

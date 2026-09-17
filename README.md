@@ -340,4 +340,4 @@ AuraTrack is a fully static client-side single-page application (SPA). You can d
 ## 📄 License & Credits
 
 - **License:** [MIT License](LICENSE)
-- **Developed by:** Mechlin Technology & AuraTrack Core Team
+- **Developed by:** AuraTrack Core Team
