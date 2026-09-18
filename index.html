@@ -11,8 +11,20 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <title>AuraTrack | Enterprise Time Intelligence</title>
+    <script>
+      (function() {
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; }, true);
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C' || e.key === 'K')) || (e.ctrlKey && (e.key === 'u' || e.key === 'U' || e.key === 's' || e.key === 'S' || e.key === 'p' || e.key === 'P')) || (e.metaKey && e.altKey && (e.key === 'i' || e.key === 'j' || e.key === 'c'))) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        }, true);
+      })();
+    </script>
   </head>
-  <body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white">
+  <body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white" oncontextmenu="return false;">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
