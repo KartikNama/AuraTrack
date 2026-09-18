@@ -19,16 +19,19 @@ fi
 echo "==> Installing dependencies..."
 npm install --production=false
 
-# 3. Build production bundle (with anti-inspect protection & no sourcemaps)
+# 3. Fix permissions before build so Vite can clean dist
+sudo chown -R $USER:$USER "$APP_DIR" 2>/dev/null || true
+
+# 4. Build production bundle (with anti-inspect protection & no sourcemaps)
 echo "==> Building production bundle..."
 npm run build
 
-# 4. Set directory permissions for Nginx
-echo "==> Updating permissions..."
-sudo chown -R www-data:www-data "$APP_DIR/dist" || true
-sudo chmod -R 755 "$APP_DIR/dist" || true
+# 5. Set directory permissions for Nginx while keeping user ownership
+echo "==> Updating permissions for Nginx..."
+sudo chown -R $USER:www-data "$APP_DIR/dist" 2>/dev/null || true
+sudo chmod -R 755 "$APP_DIR/dist" 2>/dev/null || true
 
-# 5. Reload Nginx
+# 6. Reload Nginx
 echo "==> Reloading Nginx..."
 sudo nginx -t && sudo systemctl reload nginx
 
