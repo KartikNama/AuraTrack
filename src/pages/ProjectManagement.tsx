@@ -202,7 +202,7 @@ export default function ProjectManagement({ user }: ProjectManagementProps) {
         .from('projects')
         .select(`
           *,
-          task:tasks(*),
+          task:tasks!projects_task_id_fkey(*),
           created_by_profile:profiles!projects_created_by_fkey(*),
           project_members(
             id,

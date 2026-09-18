@@ -441,7 +441,7 @@ export default function Screenshots({ user }: ScreenshotsProps) {
           queryWithRetry<ScreenshotProjectRow[]>(() =>
             supabase
               .from('project_time_entries')
-              .select('time_entry_id, project_id, projects(id, name, tasks(name))')
+              .select('time_entry_id, project_id, projects(id, name)')
               .in('time_entry_id', batchIds),
           ),
         ),

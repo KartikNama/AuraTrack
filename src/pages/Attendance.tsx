@@ -29,8 +29,7 @@ const TIME_ENTRIES_SELECT = `id, user_id, start_time, end_time, duration, descri
   profile:profiles!time_entries_user_id_fkey(id, full_name, email, team),
   project_time_entries(
     project_id,
-    billable,
-    projects(id, name, task_id, tasks(name))
+    projects(id, name)
   )`
 
 const isQueryTimeoutError = (err: SupabaseError) =>
@@ -65,14 +64,13 @@ function getAttendanceStatus(hoursWorked: number): 'present' | 'half_day' | 'abs
 function mapEntryProjects(entry: {
   project_time_entries?: Array<{
     project_id: string
-    projects?: { name?: string; tasks?: { name?: string } }
+    projects?: { id?: string; name?: string }
   }>
 }) {
   return (entry.project_time_entries || [])
     .map((pte) => ({
       project_id: pte.project_id,
       project_name: pte.projects?.name || 'No Project',
-      task_name: pte.projects?.tasks?.name || null,
     }))
     .filter((p) => p.project_id && p.project_name !== 'No Project')
 }
